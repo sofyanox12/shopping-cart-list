@@ -21,7 +21,10 @@ export const NotificationToast = () => {
   if (!notification) return null
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-lg bg-slate-900 px-4 py-3 text-sm font-medium text-white shadow-xl">
+    <div
+      key={notification.message}
+      className="animate-float-down fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-lg bg-white px-4 py-3 text-sm font-medium text-slate-900 shadow-xl sm:bottom-auto sm:right-auto sm:top-6 sm:left-1/2 sm:-translate-x-1/2"
+    >
       <span className="h-2 w-2 rounded-full bg-emerald-400" />
       <span>{notification.message}</span>
       <button
