@@ -7,7 +7,7 @@ import { ProductCard } from '@/components/ProductCard'
 export const ProductGrid = () => {
   const products = useStore((state) => state.products)
   const isLoading = useStore((state) => state.isLoadingProducts)
-  const searchQuery = useStore((state) => state.searchQuery)
+  const searchQuery = useStore((state) => state.debouncedSearchQuery)
 
   if (isLoading) {
     return (

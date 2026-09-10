@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { Product, StoreState } from '@/types/store'
+import { debounce } from '@/utils/debounce'
 
 /**
  * Initial mock product catalog converted to English.
@@ -15,103 +16,114 @@ const INITIAL_PRODUCTS: Product[] = [
   { id: 8, name: 'Desktop Speaker', price: 1599, image: 'speaker' },
 ]
 
+const SEARCH_DEBOUNCE_MS = 300
+
 /**
  * Global application store managed with Zustand.
  */
-export const useStore = create<StoreState>((set, get) => ({
-  products: [],
-  cart: [],
-  isLoadingProducts: false,
-  isCheckingOut: false,
-  isCartOpen: false,
-  searchQuery: '',
-  notification: null,
+export const useStore = create<StoreState>((set, get) => {
+  // ponytail: isolate debounced filter update from immediate UI input state
+  const updateDebouncedQuery = debounce((query: string) => {
+    set({ debouncedSearchQuery: query })
+  }, SEARCH_DEBOUNCE_MS)
 
-  loadProducts: async () => {
-    set({ isLoadingProducts: true })
-    // ponytail: minimal mock async network latency simulation
-    await new Promise((resolve) => setTimeout(resolve, 600))
-    set({ products: INITIAL_PRODUCTS, isLoadingProducts: false })
-  },
+  return {
+    products: [],
+    cart: [],
+    isLoadingProducts: false,
+    isCheckingOut: false,
+    isCartOpen: false,
+    searchQuery: '',
+    debouncedSearchQuery: '',
+    notification: null,
 
-  setSearchQuery: (query: string) => {
-    set({ searchQuery: query })
-  },
+    loadProducts: async () => {
+      set({ isLoadingProducts: true })
+      // ponytail: minimal mock async network latency simulation
+      await new Promise((resolve) => setTimeout(resolve, 600))
+      set({ products: INITIAL_PRODUCTS, isLoadingProducts: false })
+    },
 
-  addToCart: (product: Product) => {
-    const { cart } = get()
-    const existingIndex = cart.findIndex((item) => item.product.id === product.id)
+    setSearchQuery: (query: string) => {
+      set({ searchQuery: query })
+      updateDebouncedQuery(query)
+    },
 
-    if (existingIndex > -1) {
-      const updatedCart = cart.map((item, index) =>
-        index === existingIndex ? { ...item, quantity: item.quantity + 1 } : item
-      )
+    addToCart: (product: Product) => {
+      const { cart } = get()
+      const existingIndex = cart.findIndex((item) => item.product.id === product.id)
+
+      if (existingIndex > -1) {
+        const updatedCart = cart.map((item, index) =>
+          index === existingIndex ? { ...item, quantity: item.quantity + 1 } : item
+        )
+        set({
+          cart: updatedCart,
+          notification: { message: `Added another "${product.name}" to your cart.`, type: 'success' },
+        })
+        return
+      }
+
       set({
-        cart: updatedCart,
-        notification: { message: `Added another "${product.name}" to your cart.`, type: 'success' },
+        cart: [...cart, { product, quantity: 1 }],
+        notification: { message: `"${product.name}" added to your cart.`, type: 'success' },
       })
-      return
-    }
+    },
 
-    set({
-      cart: [...cart, { product, quantity: 1 }],
-      notification: { message: `"${product.name}" added to your cart.`, type: 'success' },
-    })
-  },
+    removeFromCart: (productId: number) => {
+      set((state) => ({
+        cart: state.cart.filter((item) => item.product.id !== productId),
+      }))
+    },
 
-  removeFromCart: (productId: number) => {
-    set((state) => ({
-      cart: state.cart.filter((item) => item.product.id !== productId),
-    }))
-  },
+    updateQuantity: (productId: number, delta: number) => {
+      set((state) => {
+        const target = state.cart.find((item) => item.product.id === productId)
+        if (!target) return state
 
-  updateQuantity: (productId: number, delta: number) => {
-    set((state) => {
-      const target = state.cart.find((item) => item.product.id === productId)
-      if (!target) return state
-
-      const newQuantity = target.quantity + delta
-      if (newQuantity <= 0) {
-        return {
-          cart: state.cart.filter((item) => item.product.id !== productId),
+        const newQuantity = target.quantity + delta
+        if (newQuantity <= 0) {
+          return {
+            cart: state.cart.filter((item) => item.product.id !== productId),
+          }
         }
-      }
 
-      return {
-        cart: state.cart.map((item) =>
-          item.product.id === productId ? { ...item, quantity: newQuantity } : item
-        ),
-      }
-    })
-  },
+        return {
+          cart: state.cart.map((item) =>
+            item.product.id === productId ? { ...item, quantity: newQuantity } : item
+          ),
+        }
+      })
+    },
 
-  toggleCart: () => {
-    set((state) => ({ isCartOpen: !state.isCartOpen }))
-  },
+    toggleCart: () => {
+      set((state) => ({ isCartOpen: !state.isCartOpen }))
+    },
 
-  setIsCartOpen: (open: boolean) => {
-    set({ isCartOpen: open })
-  },
+    setIsCartOpen: (open: boolean) => {
+      set({ isCartOpen: open })
+    },
 
-  checkout: async () => {
-    const { cart } = get()
-    if (cart.length === 0) return
+    checkout: async () => {
+      const { cart } = get()
+      if (cart.length === 0) return
 
-    set({ isCheckingOut: true })
-    // ponytail: minimal mock checkout network delay
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    set({
-      cart: [],
-      isCheckingOut: false,
-      isCartOpen: false,
-      notification: {
-        message: 'Order completed successfully! Thank you for your purchase.',
-        type: 'success',
-      },
-    })
-  },
+      set({ isCheckingOut: true })
+      // ponytail: minimal mock checkout network delay
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      set({
+        cart: [],
+        isCheckingOut: false,
+        isCartOpen: false,
+        notification: {
+          message: 'Order completed successfully! Thank you for your purchase.',
+          type: 'success',
+        },
+      })
+    },
 
-  clearNotification: () => {
-    set({ notification: null })
-  },
-}))
+    clearNotification: () => {
+      set({ notification: null })
+    },
+  }
+})

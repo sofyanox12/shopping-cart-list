@@ -34,6 +34,7 @@ export interface StoreState {
   isCheckingOut: boolean
   isCartOpen: boolean
   searchQuery: string
+  debouncedSearchQuery: string
   notification: NotificationState | null
   loadProducts: () => Promise<void>
   setSearchQuery: (query: string) => void
