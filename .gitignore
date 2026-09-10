@@ -39,3 +39,5 @@ Thumbs.db
 dist/assets/index-D5NgNoF-.js
 dist/assets/index-DtOgjAZ_.css
 dist/index.html
+dist/**
+dist
